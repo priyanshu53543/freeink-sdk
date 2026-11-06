@@ -67,7 +67,13 @@ class Ssd1677Driver : public PanelDriver {
   explicit Ssd1677Driver(const Ssd1677Config& cfg = ssd1677DefaultConfig());
 
   uint32_t spiHz() const override;
-  BusyPolarity busyPolarity() const override { return BusyPolarity::ActiveHigh; }
+ BusyPolarity busyPolarity() const override {
+#if FREEINK_DEVICE_OPENINK
+    return BusyPolarity::ActiveLow;
+#else
+    return BusyPolarity::ActiveHigh;
+#endif
+}
   PanelGeometry geometry() const override;
 
   void begin(EpdBus& bus) override;

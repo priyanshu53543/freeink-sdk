@@ -513,6 +513,122 @@ void InputManager::updateDigitalTwoButton(const unsigned long currentTime) {
   if (pressedEvents & (1u << BTN_POWER)) powerButtonPressStart = twoButtonPressStart;
 }
 
+void InputManager::updateDigitalThreeButton(const unsigned long currentTime) {
+    const bool key1 = isDigitalPressed(BoardConfig::ACTIVE.input.up);
+    const bool key2 = isDigitalPressed(BoardConfig::ACTIVE.input.confirm);
+    const bool key3 = isDigitalPressed(BoardConfig::ACTIVE.input.down);
+
+    const uint8_t physical =
+        static_cast<uint8_t>((key1 ? 1u : 0u) |
+                             (key2 ? 2u : 0u) |
+                             (key3 ? 4u : 0u));
+
+    uint8_t auxiliaryState = serviceTouch();
+
+    if (s_buttonHook) {
+        auxiliaryState |= s_buttonHook();
+    }
+
+    const bool singleButton =
+        physical == 1 || physical == 2 || physical == 4;
+
+    if (physical != twoButtonPhysicalState) {
+        const uint8_t previousPhysical = twoButtonPhysicalState;
+
+        // Button released
+        if (physical == 0 &&
+            (previousPhysical == 1 ||
+             previousPhysical == 2 ||
+             previousPhysical == 4)) {
+
+            if (!twoButtonLongPressActive) {
+                uint8_t logical = BTN_UP;
+
+                if (previousPhysical == 1) {
+                    logical = BTN_UP;
+                } else if (previousPhysical == 2) {
+                    logical = BTN_CONFIRM;
+                } else if (previousPhysical == 4) {
+                    logical = BTN_DOWN;
+                }
+
+                applyStateChange(auxiliaryState, currentTime);
+
+                pressedEvents |= static_cast<uint8_t>(1u << logical);
+                releasedEvents |= static_cast<uint8_t>(1u << logical);
+
+                buttonPressStart = twoButtonPressStart;
+                buttonPressFinish = currentTime;
+            } else {
+                applyStateChange(auxiliaryState, currentTime);
+            }
+
+            twoButtonPhysicalState = 0;
+            twoButtonPressStart = currentTime;
+            twoButtonLongPressActive = false;
+            return;
+        }
+
+        // New button press
+        if (singleButton) {
+            twoButtonPhysicalState = physical;
+            twoButtonPressStart = currentTime;
+            twoButtonLongPressActive = false;
+
+            applyStateChange(auxiliaryState, currentTime);
+            return;
+        }
+
+        // Multiple buttons pressed simultaneously
+        twoButtonPhysicalState = 0;
+        twoButtonPressStart = currentTime;
+        twoButtonLongPressActive = false;
+
+        applyStateChange(auxiliaryState, currentTime);
+        return;
+    }
+
+    // Nothing pressed
+    if (physical == 0) {
+        applyStateChange(auxiliaryState, currentTime);
+        return;
+    }
+
+    // Multiple buttons pressed
+    if (!singleButton) {
+        applyStateChange(auxiliaryState, currentTime);
+        return;
+    }
+
+    // Long press
+    if (currentTime - twoButtonPressStart >= TWO_BUTTON_HOLD_MS) {
+
+        twoButtonLongPressActive = true;
+
+        uint8_t logical = BTN_LEFT;
+
+        if (physical == 1) {
+            // GPIO2: long press = LEFT
+            logical = BTN_LEFT;
+        } else if (physical == 2) {
+            // GPIO3: long press = BACK
+            logical = BTN_BACK;
+        } else if (physical == 4) {
+            // GPIO5: long press = RIGHT
+            logical = BTN_RIGHT;
+        }
+
+        uint8_t nextState = auxiliaryState;
+        nextState |= static_cast<uint8_t>(1u << logical);
+
+        applyStateChange(nextState, currentTime);
+        return;
+    }
+
+    // Still waiting to determine short vs long press
+    applyStateChange(auxiliaryState, currentTime);
+}
+
 void InputManager::update() {
   const unsigned long currentTime = millis();
 
@@ -540,6 +656,11 @@ void InputManager::update() {
     updateDigitalTwoButton(currentTime);
     return;
   }
+
+if (BoardConfig::ACTIVE.inputStyle == BoardConfig::InputStyle::DigitalThreeButton) {
+    updateDigitalThreeButton(currentTime);
+    return;
+}
 
   const uint8_t state = getState();
 

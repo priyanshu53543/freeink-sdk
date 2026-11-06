@@ -102,6 +102,26 @@ static const Ssd1677Config& ssd1677StickyConfig() {
   return cfg;
 }
 
+
+static const Ssd1677Config& ssd1677OpenInkConfig() {
+  static const Ssd1677Config cfg = {
+      {0xAE, 0xC7, 0xC3, 0xC0, 0x80},
+      DRIVER_OUTPUT_SCAN,
+      0x01,
+      0x5A,
+      lut_grayscale_sticky,
+      0xF7,
+      0xFF,
+      0x00,
+      0x01,
+      0x80,
+      0x00,
+      0x80,
+      true,
+      true,
+  };
+  return cfg;
+}
 // ── Reusable per-board waveform shortcuts ────────────────────────────────────
 // Opt-in optimizations a board can layer onto a base Ssd1677Config when its
 // specific panel is known to tolerate them. Each is a pure copy-and-tweak so a
@@ -711,7 +731,11 @@ static const Ssd1677Config& ssd1677ActiveConfig() { return FREEINK_SSD1677_CONFI
 // use the X4/GDEQ0426T82 defaults.
 static const Ssd1677Config& ssd1677ActiveConfig() {
   switch (BoardConfig::ACTIVE.board) {
-    case BoardConfig::Board::Sticky: return ssd1677StickyConfig();
+    case BoardConfig::Board::OpenInk:
+      return ssd1677OpenInkConfig();
+
+    case BoardConfig::Board::Sticky:
+      return ssd1677StickyConfig();
     // Waveshare ESP32-S3-ePaper-3.97: the vendor driver's bring-up is byte-identical
     // to Seeed's (booster AE C7 C3 C0 80, border 0x01, 0x22 = F7 full / FF partial /
     // D7 fast), so it runs the same config. Grayscale LUT is Sticky's — same panel

@@ -78,12 +78,15 @@
 #ifndef FREEINK_DEVICE_WS397
 #define FREEINK_DEVICE_WS397 0
 #endif
-
+#ifndef FREEINK_DEVICE_OPENINK
+#define FREEINK_DEVICE_OPENINK 0
+#endif
 // --- 2) Coherence: exactly one MCU family, at least one device ---------------
 #if !(FREEINK_DEVICE_X4 || FREEINK_DEVICE_X3 || FREEINK_DEVICE_X4PRO || FREEINK_DEVICE_X4CLASSIC || FREEINK_DEVICE_M5 || \
       FREEINK_DEVICE_MURPHY || FREEINK_DEVICE_DELINK || FREEINK_DEVICE_LILYGO || FREEINK_DEVICE_M5PAPER ||               \
       FREEINK_DEVICE_STICKY || FREEINK_DEVICE_PAPERMONO || FREEINK_DEVICE_PAPERS3 || FREEINK_DEVICE_MURPHY_M4 ||         \
-      FREEINK_DEVICE_EEGO_A4 || FREEINK_DEVICE_ONEPAGE || FREEINK_DEVICE_WS397)
+      FREEINK_DEVICE_EEGO_A4 || FREEINK_DEVICE_ONEPAGE || FREEINK_DEVICE_WS397 || \
+      FREEINK_DEVICE_OPENINK)
 #error \
     "FreeInk: no device selected. Pass at least one -DFREEINK_DEVICE_<NAME> (X4, X3, X4PRO, X4CLASSIC, M5, MURPHY, DELINK, LILYGO, M5PAPER, STICKY, PAPERMONO, PAPERS3, MURPHY_M4, EEGO_A4, ONEPAGE, WS397) in your build env — see platformio.sample.ini."
 #endif
@@ -96,7 +99,8 @@
 #define FREEINK_MCU_S3                                                                                    \
   (FREEINK_DEVICE_M5 || FREEINK_DEVICE_MURPHY || FREEINK_DEVICE_DELINK || FREEINK_DEVICE_LILYGO ||        \
    FREEINK_DEVICE_STICKY || FREEINK_DEVICE_X4PRO || FREEINK_DEVICE_X4CLASSIC || FREEINK_DEVICE_PAPERMONO ||  \
-   FREEINK_DEVICE_PAPERS3 || FREEINK_DEVICE_MURPHY_M4 || FREEINK_DEVICE_EEGO_A4 || FREEINK_DEVICE_WS397)
+   FREEINK_DEVICE_PAPERS3 || FREEINK_DEVICE_MURPHY_M4 || FREEINK_DEVICE_EEGO_A4 || \
+   FREEINK_DEVICE_WS397 || FREEINK_DEVICE_OPENINK)
 #define FREEINK_MCU_ESP32 (FREEINK_DEVICE_M5PAPER)
 #if (FREEINK_MCU_C3 + FREEINK_MCU_C61 + FREEINK_MCU_S3 + FREEINK_MCU_ESP32) != 1
 #error \
@@ -111,7 +115,8 @@
 // use SSD1677, UC8179, or UC8279, recovered from OEM firmware and hardware
 // references — see docs/xteink-x4pro-support.md.
 #if FREEINK_DEVICE_X4 || FREEINK_DEVICE_DELINK || FREEINK_DEVICE_STICKY || FREEINK_DEVICE_X4PRO || \
-    FREEINK_DEVICE_X4CLASSIC || FREEINK_DEVICE_MURPHY_M4 || FREEINK_DEVICE_ONEPAGE || FREEINK_DEVICE_WS397
+   FREEINK_DEVICE_X4CLASSIC || FREEINK_DEVICE_MURPHY_M4 || FREEINK_DEVICE_ONEPAGE || \
+    FREEINK_DEVICE_WS397 || FREEINK_DEVICE_OPENINK
 #define FREEINK_DRIVER_SSD1677 1
 #else
 #define FREEINK_DRIVER_SSD1677 0
@@ -386,7 +391,8 @@ enum class Board : uint8_t {
   M5PaperS3,  // ESP32-S3 sibling of M5Paper v1.1: same ED047TC1 glass, no IT8951 — raw parallel via LovyanGFX
   EegoA4,     // EEGO Reader A4: ESP32-S3, UC8279C 768x552 SPI panel, GSLX680 touch, PCF8563 RTC
   OnePage,    // OnePage: ESP32-C61, SSD1677 800x480 SPI panel, 4-key ADC ladder + 3 side keys
-  WsEpaper397,  // Waveshare ESP32-S3-ePaper-3.97: SSD1677 800x480, 3 keys + BOOT, AXP2101 PMIC
+  WsEpaper397, 
+    OpenInk, // Waveshare ESP32-S3-ePaper-3.97: SSD1677 800x480, 3 keys + BOOT, AXP2101 PMIC
 };
 
 // How the board reports button presses.
@@ -397,7 +403,8 @@ enum class InputStyle : uint8_t {
   DigitalConfirmPowerHold,  // confirm click, power hold on a shared GPIO
   DigitalFiveKey,           // 3 physical GPIO keys + synthesized events (Murphy M3)
   DigitalTwoButton,         // short up/down; holds synthesize back/confirm/power
-  OnePageAdcLadder,         // OnePage: 4 front keys on GPIO4 ADC ladder + 3 side GPIO keys
+  OnePageAdcLadder,
+  DigitalThreeButton,         // OnePage: 4 front keys on GPIO4 ADC ladder + 3 side GPIO keys
 };
 
 // Panel controller silicon. Drivers are selected from this at begin().
@@ -1546,6 +1553,60 @@ constexpr BoardProfile WS_EPAPER_397 = {
     // The SHTC3 (0x70) has no EnvironmentSensor backend yet, so it stays 0.
     {41, 42, 400000, 0x51, 0, 0x6B, 0, RtcType::Pcf85063, ImuType::Qmi8658}};
 
+    // --- OpenInk --- XIAO ESP32-S3 Plus + Seeed EE04 + 4.26" 800x480 SSD1677 ---
+constexpr BoardProfile OPENINK = {
+    Board::OpenInk,
+    "openink",
+    InputStyle::DigitalThreeButton,
+    DisplayController::SSD1677,
+    800,
+    480,
+
+    // EE04 EPD: SCK7 MOSI9 CS44 DC10 RST38 BUSY4, EPD power enable GPIO43.
+    {7, 9, 44, 10, 38, 4, 43},
+    20000000,
+
+    // No SD card.
+    {PIN_UNASSIGNED, PIN_UNASSIGNED, PIN_UNASSIGNED, PIN_UNASSIGNED,
+     PIN_UNASSIGNED, false, 0},
+
+    // KEY1=GPIO2 -> UP
+// KEY2=GPIO3 -> CONFIRM
+// KEY3=GPIO5 -> DOWN
+{PIN_UNASSIGNED, 3, PIN_UNASSIGNED, PIN_UNASSIGNED, 2, 5,
+ PIN_UNASSIGNED, false},
+
+    // No dedicated battery ADC in the BoardProfile.
+    PIN_UNASSIGNED,
+    PIN_UNASSIGNED,
+    2.0f,
+    PIN_UNASSIGNED,
+
+    NO_TOUCH,
+    NO_FRONTLIGHT,
+    NO_AUDIO,
+    NO_LEDS,
+    NO_FLIP,
+
+    NO_SDMMC,
+
+    // No external fuel-gauge/charger I2C device.
+    NO_GAUGE,
+
+    NO_MIC,
+
+    NO_SENSORS,
+
+    1.0f,
+
+    // No power latch.
+    {PIN_UNASSIGNED},
+
+    0,
+
+    // No special bezel inset.
+    {0, 0, 0, 0}
+};
 // --- Xteink X4 Pro — ESP32-S3, 800x480 EPD + GT911 touch + warm/cold frontlight ---
 // Recovered from the OEM flash dump (x4pro_flash_dump.bin); full evidence and confidence
 // levels in docs/xteink-x4pro-support.md. This is a DISTINCT device from the C3
@@ -1827,13 +1888,16 @@ constexpr uint32_t MAX_FRAMEBUFFER_BYTES = cmax(
               cmax(cmax(FREEINK_DEVICE_PAPERS3 ? panelBytes(M5PAPER_S3) : 0u,
                         FREEINK_DEVICE_MURPHY_M4 ? panelBytes(MURPHY_M4) : 0u),
                    cmax(cmax(FREEINK_DEVICE_EEGO_A4 ? panelBytes(EEGO_A4) : 0u,
-                             FREEINK_DEVICE_ONEPAGE ? panelBytes(ONEPAGE) : 0u),
-                        FREEINK_DEVICE_WS397 ? panelBytes(WS_EPAPER_397) : 0u)))));
+          FREEINK_DEVICE_ONEPAGE ? panelBytes(ONEPAGE) : 0u),
+     cmax(FREEINK_DEVICE_WS397 ? panelBytes(WS_EPAPER_397) : 0u,
+          FREEINK_DEVICE_OPENINK ? panelBytes(OPENINK) : 0u))))));
 
 // Compile-time default device — the profile ACTIVE starts as. With a single
 // device in the build this is the only device; with several same-MCU devices it
 // is the boot default until the consumer calls selectDevice().
-#if FREEINK_DEVICE_WS397
+#if FREEINK_DEVICE_OPENINK
+constexpr BoardProfile DEFAULT_DEVICE = OPENINK;
+#elif FREEINK_DEVICE_WS397
 constexpr BoardProfile DEFAULT_DEVICE = WS_EPAPER_397;
 #elif FREEINK_DEVICE_ONEPAGE
 constexpr BoardProfile DEFAULT_DEVICE = ONEPAGE;
@@ -1880,6 +1944,12 @@ inline void holdPowerRails();  // defined below; used by selectDevice()
 // leaves ACTIVE unchanged) if `which` was not included via -DFREEINK_DEVICE_*.
 inline bool selectDevice(Board which) {
   switch (which) {
+
+#if FREEINK_DEVICE_OPENINK
+    case Board::OpenInk:
+      ACTIVE = OPENINK;
+      break;
+#endif
 #if FREEINK_DEVICE_X4
     case Board::XteinkX4:
       ACTIVE = XTEINK_X4;

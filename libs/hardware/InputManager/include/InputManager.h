@@ -308,9 +308,10 @@ class InputManager {
   bool isDigitalPressed(int8_t pin) const;
   uint8_t getDigitalState() const;
   void updateConfirmBackHold(unsigned long currentTime);
-  void updateConfirmPowerHold(unsigned long currentTime);
-  void updateDigitalTwoButton(unsigned long currentTime);
-  void applyStateChange(uint8_t state, unsigned long currentTime);
+void updateConfirmPowerHold(unsigned long currentTime);
+void updateDigitalTwoButton(unsigned long currentTime);
+void updateDigitalThreeButton(unsigned long currentTime);
+void applyStateChange(uint8_t state, unsigned long currentTime);
 
   // Touch backend. Compiled only when FREEINK_CAP_TOUCH is set; dispatches on
   // BoardConfig::ACTIVE.touch.controller (CHSC6x, GT911, or FT5x06/FT6336).
